@@ -3,46 +3,11 @@ import ReactMarkdown from "react-markdown";
 import jsPDF from "jspdf";
 
 const AGENTS = [
-  {
-    key: "classifier",
-    icon: "🔍",
-    label: "Symptom Classifier",
-    color: "border-purple-600",
-    headerColor: "text-purple-400",
-    bg: "bg-purple-950",
-  },
-  {
-    key: "risk",
-    icon: "⚠️",
-    label: "Risk Assessor",
-    color: "border-yellow-600",
-    headerColor: "text-yellow-400",
-    bg: "bg-yellow-950",
-  },
-  {
-    key: "recommendation",
-    icon: "💊",
-    label: "Recommendation Generator",
-    color: "border-blue-600",
-    headerColor: "text-blue-400",
-    bg: "bg-blue-950",
-  },
-  {
-    key: "safety",
-    icon: "🛡️",
-    label: "Safety Checker",
-    color: "border-green-600",
-    headerColor: "text-green-400",
-    bg: "bg-green-950",
-  },
+  { key: "classifier", icon: "🔍", label: "Classify" },
+  { key: "risk", icon: "⚠️", label: "Risk" },
+  { key: "recommendation", icon: "💊", label: "Recommend" },
+  { key: "safety", icon: "🛡️", label: "Safety" },
 ];
-
-const SEVERITY_STYLES = {
-  Low: "bg-green-800 text-green-200",
-  Moderate: "bg-yellow-800 text-yellow-200",
-  High: "bg-orange-800 text-orange-200",
-  Emergency: "bg-red-800 text-red-200 animate-pulse",
-};
 
 const STEPS = {
   INPUT: "input",
@@ -52,35 +17,39 @@ const STEPS = {
   DONE: "done",
 };
 
-function AgentTimeline({ agentStates }) {
-  const TIMELINE = [
-    { key: "classifier", icon: "🔍", label: "Classify" },
-    { key: "risk", icon: "⚠️", label: "Risk" },
-    { key: "recommendation", icon: "💊", label: "Recommend" },
-    { key: "safety", icon: "🛡️", label: "Safety" },
-  ];
+const SEVERITY_CONFIG = {
+  Low: { color: "text-green-600", bg: "bg-green-50 border-green-200", dot: "bg-green-500" },
+  Moderate: { color: "text-yellow-600", bg: "bg-yellow-50 border-yellow-200", dot: "bg-yellow-500" },
+  High: { color: "text-orange-600", bg: "bg-orange-50 border-orange-200", dot: "bg-orange-500" },
+  Emergency: { color: "text-red-600", bg: "bg-red-50 border-red-300", dot: "bg-red-500" },
+};
 
+function AgentTimeline({ agentStates }) {
   return (
-    <div className="flex items-center justify-between w-full bg-gray-900 border border-gray-700 rounded-xl px-6 py-4">
-      {TIMELINE.map((agent, i) => {
+    <div className="flex items-center justify-center gap-1 py-3">
+      {AGENTS.map((agent, i) => {
         const state = agentStates[agent.key];
         const isThinking = state?.status === "thinking" && !state?.result;
         const isDone = !!state?.result;
         return (
-          <div key={agent.key} className="flex items-center gap-2">
+          <div key={agent.key} className="flex items-center">
             <div className="flex flex-col items-center gap-1">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all duration-500
-                ${isDone ? "border-green-500 bg-green-950" :
-                  isThinking ? "border-blue-400 bg-blue-950 animate-pulse" :
-                  "border-gray-700 bg-gray-800"}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-base border-2 transition-all duration-500
+                ${isDone ? "border-blue-500 bg-blue-50 dark:bg-blue-950" :
+                  isThinking ? "border-blue-300 bg-blue-50 dark:bg-blue-900 animate-pulse" :
+                  "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800"}`}>
                 {agent.icon}
               </div>
-              <span className={`text-xs ${isDone ? "text-green-400" : isThinking ? "text-blue-400 animate-pulse" : "text-gray-600"}`}>
+              <span className={`text-xs font-medium transition-colors
+                ${isDone ? "text-blue-600 dark:text-blue-400" :
+                  isThinking ? "text-blue-400 animate-pulse" :
+                  "text-gray-400"}`}>
                 {agent.label}
               </span>
             </div>
-            {i < TIMELINE.length - 1 && (
-              <div className={`h-0.5 w-12 mx-1 mb-4 transition-all duration-500 ${isDone ? "bg-green-500" : "bg-gray-700"}`} />
+            {i < AGENTS.length - 1 && (
+              <div className={`h-0.5 w-8 mx-1 mb-4 transition-all duration-700
+                ${isDone ? "bg-blue-400" : "bg-gray-200 dark:bg-gray-700"}`} />
             )}
           </div>
         );
@@ -89,7 +58,23 @@ function AgentTimeline({ agentStates }) {
   );
 }
 
+function ConfidenceBar({ label, score }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-gray-500 dark:text-gray-400 w-24 truncate">{label}</span>
+      <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+        <div
+          className="bg-blue-500 h-1.5 rounded-full transition-all duration-700"
+          style={{ width: `${score || 0}%` }}
+        />
+      </div>
+      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 w-8">{score}%</span>
+    </div>
+  );
+}
+
 export default function App() {
+  const [dark, setDark] = useState(false);
   const [question, setQuestion] = useState("");
   const [clarifyingQuestion, setClarifyingQuestion] = useState("");
   const [context, setContext] = useState("");
@@ -99,21 +84,26 @@ export default function App() {
   const [step, setStep] = useState(STEPS.INPUT);
   const [listening, setListening] = useState(false);
   const [history, setHistory] = useState([]);
+  const [notHealthMsg, setNotHealthMsg] = useState("");
+  const [unifiedAnswer, setUnifiedAnswer] = useState("");
 
   const startListening = (setter) => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Voice input not supported. Try Chrome.");
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.onstart = () => setListening(true);
-    recognition.onend = () => setListening(false);
-    recognition.onresult = (e) => setter(e.results[0][0].transcript);
-    recognition.onerror = () => setListening(false);
-    recognition.start();
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Use Chrome for voice input."); return; }
+    const r = new SR();
+    r.lang = "en-US";
+    r.onstart = () => setListening(true);
+    r.onend = () => setListening(false);
+    r.onresult = (e) => setter(e.results[0][0].transcript);
+    r.onerror = () => setListening(false);
+    r.start();
+  };
+
+  const buildUnifiedAnswer = (states) => {
+    const rec = states.recommendation?.result || "";
+    const safety = states.safety?.result || "";
+    const clean = (t) => t.replace(/\*\*/g, "").replace(/#+\s/g, "").trim();
+    return `${clean(rec)}\n\n${clean(safety)}`;
   };
 
   const handleAsk = async () => {
@@ -122,8 +112,10 @@ export default function App() {
     setAgentStates({});
     setSeverity(null);
     setConfidence(null);
+    setUnifiedAnswer("");
     setClarifyingQuestion("");
     setContext("");
+    setNotHealthMsg("");
 
     try {
       const res = await fetch("http://localhost:8000/clarify", {
@@ -132,6 +124,11 @@ export default function App() {
         body: JSON.stringify({ question }),
       });
       const data = await res.json();
+      if (data.error === "not_health") {
+        setStep(STEPS.INPUT);
+        setNotHealthMsg(data.message);
+        return;
+      }
       setClarifyingQuestion(data.clarifying_question);
       setStep(STEPS.CONTEXT);
     } catch {
@@ -145,6 +142,7 @@ export default function App() {
     setAgentStates({});
     setSeverity(null);
     setConfidence(null);
+    setUnifiedAnswer("");
 
     try {
       const res = await fetch("http://localhost:8000/analyze", {
@@ -156,11 +154,11 @@ export default function App() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let latestStates = {};
 
       while (true) {
         const { done: streamDone, value } = await reader.read();
         if (streamDone) break;
-
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop();
@@ -170,26 +168,17 @@ export default function App() {
           try {
             const data = JSON.parse(line);
             if (data.agent === "done") {
-              setStep(STEPS.DONE);
+            } else if (data.agent === "summary" && data.result) {
+              setUnifiedAnswer(data.result);
             } else if (data.agent === "confidence" && data.result) {
               setConfidence(data.result);
             } else if (data.agent === "risk" && data.severity) {
               setSeverity(data.severity);
-              setAgentStates((prev) => ({
-                ...prev,
-                risk: {
-                  status: data.status || "done",
-                  result: data.result || prev.risk?.result,
-                },
-              }));
-            } else {
-              setAgentStates((prev) => ({
-                ...prev,
-                [data.agent]: {
-                  status: data.status || "done",
-                  result: data.result || prev[data.agent]?.result,
-                },
-              }));
+              latestStates = { ...latestStates, risk: { status: data.status || "done", result: data.result } };
+              setAgentStates({ ...latestStates });
+            } else if (data.agent && data.agent !== "error") {
+              latestStates = { ...latestStates, [data.agent]: { status: data.status || "done", result: data.result || latestStates[data.agent]?.result } };
+              setAgentStates({ ...latestStates });
             }
           } catch {}
         }
@@ -201,306 +190,295 @@ export default function App() {
   };
 
   const handleReset = () => {
-  if (step === STEPS.DONE && question) {
-    setHistory((prev) => [
-      {
-        question,
-        context,
-        severity,
+    if (step === STEPS.DONE && question) {
+      setHistory((prev) => [{
+        question, context, severity, confidence, agentStates, unifiedAnswer,
         timestamp: new Date().toLocaleTimeString(),
-      },
-      ...prev,
-    ]);
-  }
-  setStep(STEPS.INPUT);
-  setQuestion("");
-  setClarifyingQuestion("");
-  setContext("");
-  setAgentStates({});
-  setSeverity(null);
-  setConfidence(null);
-};
-
-const downloadPDF = () => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 15;
-  const maxWidth = pageWidth - margin * 2;
-  let y = 20;
-
-  const addText = (text, size = 11, bold = false) => {
-    doc.setFontSize(size);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
-    const lines = doc.splitTextToSize(text || "", maxWidth);
-    lines.forEach((line) => {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.text(line, margin, y);
-      y += size * 0.5 + 2;
-    });
-    y += 2;
+      }, ...prev]);
+    }
+    setStep(STEPS.INPUT);
+    setQuestion("");
+    setClarifyingQuestion("");
+    setContext("");
+    setAgentStates({});
+    setSeverity(null);
+    setConfidence(null);
+    setUnifiedAnswer("");
+    setNotHealthMsg("");
   };
 
-  const addSection = (title, content) => {
-    if (y > 240) { doc.addPage(); y = 20; }
-    doc.setFillColor(30, 30, 60);
-    doc.rect(margin - 2, y - 5, maxWidth + 4, 9, "F");
-    doc.setTextColor(150, 180, 255);
-    addText(title, 12, true);
+  const loadFromHistory = (item) => {
+    setQuestion(item.question);
+    setContext(item.context);
+    setSeverity(item.severity);
+    setConfidence(item.confidence);
+    setAgentStates(item.agentStates);
+    setUnifiedAnswer(item.unifiedAnswer || "");
+    setClarifyingQuestion("");
+    setStep(STEPS.DONE);
+  };
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const maxWidth = pageWidth - margin * 2;
+    let y = 20;
+
+    const addText = (text, size = 11, bold = false) => {
+      doc.setFontSize(size);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      const lines = doc.splitTextToSize(text || "", maxWidth);
+      lines.forEach((line) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.text(line, margin, y);
+        y += size * 0.5 + 2;
+      });
+      y += 2;
+    };
+
+    const addSection = (title, content) => {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFillColor(240, 245, 255);
+      doc.rect(margin - 2, y - 5, maxWidth + 4, 9, "F");
+      doc.setTextColor(30, 80, 200);
+      addText(title, 12, true);
+      doc.setTextColor(30, 30, 30);
+      const clean = content?.replace(/\*\*/g, "").replace(/#+/g, "").trim();
+      addText(clean, 10);
+      y += 4;
+    };
+
+    doc.setFillColor(10, 20, 80);
+    doc.rect(0, 0, pageWidth, 35, "F");
+    doc.setTextColor(100, 160, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("CareAgent", margin, 15);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(180, 180, 220);
+    doc.text("AI Health Reasoning Report", margin, 24);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 30);
+    y = 45;
+
     doc.setTextColor(30, 30, 30);
-    const clean = content?.replace(/\*\*/g, "").replace(/#+/g, "").trim();
-    addText(clean, 10);
+    if (severity) addText(`Severity Level: ${severity}`, 13, true);
+    addText(`Question: ${question}`, 11, true);
+    if (context) addText(`Additional Context: ${context}`, 10);
     y += 4;
+
+    addSection("SYMPTOM CLASSIFICATION", agentStates.classifier?.result);
+    addSection("RISK ASSESSMENT", agentStates.risk?.result);
+    addSection("RECOMMENDATIONS", agentStates.recommendation?.result);
+    addSection("SAFETY NOTES", agentStates.safety?.result);
+
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text("CareAgent is not a substitute for professional medical advice. Always consult a doctor.", margin, 290);
+    }
+    doc.save(`careagent-report-${Date.now()}.pdf`);
   };
 
-  // Header
-  doc.setFillColor(10, 20, 50);
-  doc.rect(0, 0, pageWidth, 35, "F");
-  doc.setTextColor(100, 160, 255);
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.text("CareAgent", margin, 15);
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(180, 180, 180);
-  doc.text("AI Health Reasoning Report", margin, 24);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 30);
-  y = 45;
-
-  // Severity
-  doc.setTextColor(30, 30, 30);
-  if (severity) {
-    addText(`Severity Level: ${severity}`, 13, true);
-  }
-
-  // Question + Context
-  addText(`Question: ${question}`, 11, true);
-  if (context) addText(`Additional Context: ${context}`, 10);
-  y += 4;
-
-  // Agent Results
-  addSection("SYMPTOM CLASSIFICATION", agentStates.classifier?.result);
-  addSection("RISK ASSESSMENT", agentStates.risk?.result);
-  addSection("RECOMMENDATIONS", agentStates.recommendation?.result);
-  addSection("SAFETY NOTES", agentStates.safety?.result);
-
-  // Footer
-  const totalPages = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.text("CareAgent is not a substitute for professional medical advice. Always consult a doctor.", margin, 290);
-  }
-
-  doc.save(`careagent-report-${Date.now()}.pdf`);
-};
+  const sev = severity ? SEVERITY_CONFIG[severity] : null;
 
   return (
-  <div className="min-h-screen bg-gray-950 text-white flex">
+    <div className={dark ? "dark" : ""}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white flex transition-colors duration-300">
 
-    {/* Sidebar */}
-    <div className="hidden md:flex flex-col w-64 bg-gray-900 border-r border-gray-800 p-4 gap-3 min-h-screen">
-      <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">🕐 Session History</p>
-      {history.length === 0 && (
-        <p className="text-gray-600 text-xs">No history yet. Ask a question to get started.</p>
-      )}
-      {history.map((item, i) => (
-        <div key={i} className="bg-gray-800 rounded-xl p-3 border border-gray-700">
-          <p className="text-white text-xs font-semibold truncate">{item.question}</p>
-          <div className="flex items-center justify-between mt-1">
-            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold
-              ${item.severity === "Emergency" ? "bg-red-800 text-red-200" :
-                item.severity === "High" ? "bg-orange-800 text-orange-200" :
-                item.severity === "Moderate" ? "bg-yellow-800 text-yellow-200" :
-                "bg-green-800 text-green-200"}`}>
-              {item.severity || "Unknown"}
-            </span>
-            <span className="text-gray-500 text-xs">{item.timestamp}</span>
+        {/* Sidebar */}
+        <div className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 gap-3 min-h-screen shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-widest font-semibold">🕐 History</p>
           </div>
-        </div>
-      ))}
-    </div>
-
-    {/* Main Content */}
-    <div className="flex-1 flex flex-col items-center px-4 py-12">
-      <h1 className="text-4xl font-bold text-blue-400 mb-1">🩺 CareAgent</h1>
-      <p className="text-gray-400 mb-2 text-center text-sm">
-        Multi-agent AI health reasoning — powered by 4 specialized agents
-      </p>
-      <div className="flex flex-wrap justify-center gap-2 mb-8">
-        {AGENTS.map((a) => (
-          <span key={a.key} className="text-xs bg-gray-800 px-2 py-1 rounded-full text-gray-400">
-            {a.icon} {a.label}
-          </span>
-        ))}
-      </div>
-
-      <div className="w-full max-w-2xl flex flex-col gap-4">
-
-        {/* Agent Timeline */}
-        {(step === STEPS.ANALYZING || step === STEPS.DONE) && (
-          <AgentTimeline agentStates={agentStates} />
-        )}
-
-        {/* Severity Banner */}
-        {severity && severity !== "Emergency" && (
-          <div className={`rounded-xl px-5 py-3 flex items-center justify-between ${SEVERITY_STYLES[severity]}`}>
-            <span className="font-bold text-sm uppercase tracking-widest">
-              {severity === "High" ? "🔴" : severity === "Moderate" ? "🟡" : "🟢"} Severity: {severity}
-            </span>
-          </div>
-        )}
-
-        {/* Emergency Alert */}
-        {severity === "Emergency" && (
-          <div className="rounded-xl border-2 border-red-500 bg-red-950 px-6 py-5 animate-pulse">
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">🚨</span>
-              <span className="text-red-300 font-black text-lg uppercase tracking-widest">
-                Emergency Detected
-              </span>
-            </div>
-            <p className="text-red-200 text-sm mb-4">
-              Your symptoms may require immediate medical attention. Do not wait.
-            </p>
-            <a
-              href="tel:911"
-              className="block w-full text-center bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition text-lg">
-              📞 Call 911 Now
-            </a>
-          </div>
-        )}
-
-        {/* Question Input */}
-        <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
-          <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">
-            💬 Your Question
-          </p>
-          <textarea
-            className="w-full bg-gray-800 border border-gray-700 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-            rows={3}
-            placeholder="e.g. I have a severe headache and feel nauseous"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            disabled={step !== STEPS.INPUT}
-          />
-          {step === STEPS.INPUT && (
-            <div className="flex gap-2 mt-3">
-              <button
-                onClick={() => startListening(setQuestion)}
-                className={`py-3 px-5 rounded-xl transition font-semibold ${listening ? "bg-red-600 animate-pulse" : "bg-gray-700 hover:bg-gray-600"} text-white`}
-                title="Speak your question"
-              >
-                🎤
-              </button>
-              <button
-                onClick={handleAsk}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition"
-              >
-                Continue →
-              </button>
-            </div>
+          {history.length === 0 && (
+            <p className="text-gray-400 text-xs">No history yet.</p>
           )}
+          {history.map((item, i) => (
+            <div
+              key={i}
+              onClick={() => loadFromHistory(item)}
+              className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-blue-400 hover:shadow-md transition"
+            >
+              <p className="text-gray-800 dark:text-white text-xs font-semibold truncate">{item.question}</p>
+              <div className="flex items-center justify-between mt-1">
+                {item.severity && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${SEVERITY_CONFIG[item.severity]?.bg} ${SEVERITY_CONFIG[item.severity]?.color}`}>
+                    {item.severity}
+                  </span>
+                )}
+                <span className="text-gray-400 text-xs">{item.timestamp}</span>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Clarifying Question */}
-        {(step === STEPS.CLARIFYING || step === STEPS.CONTEXT || step === STEPS.ANALYZING || step === STEPS.DONE) && (
-          <div className="bg-gray-900 border border-blue-800 rounded-xl p-5">
-            <p className="text-blue-400 text-xs uppercase tracking-widest mb-2">
-              🤔 Follow-up Question
-            </p>
-            {step === STEPS.CLARIFYING ? (
-              <p className="text-gray-400 animate-pulse">Generating question...</p>
-            ) : (
-              <>
-                <p className="text-white mb-3">{clarifyingQuestion}</p>
-                <textarea
-                  className="w-full bg-gray-800 border border-gray-700 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-                  rows={2}
-                  placeholder="Type your answer here..."
-                  value={context}
-                  onChange={(e) => setContext(e.target.value)}
-                  disabled={step !== STEPS.CONTEXT}
-                />
-                {step === STEPS.CONTEXT && (
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => startListening(setContext)}
-                      className={`py-3 px-5 rounded-xl transition font-semibold ${listening ? "bg-red-600 animate-pulse" : "bg-gray-700 hover:bg-gray-600"} text-white`}
-                      title="Speak your answer"
-                    >
-                      🎤
-                    </button>
-                    <button
-                      onClick={handleAnalyze}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition"
-                    >
-                      🧠 Analyze with All Agents
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
+        {/* Main */}
+        <div className="flex-1 flex flex-col items-center px-4 py-10">
 
-        {/* Agent Cards */}
-        {AGENTS.map((agent) => {
-          const state = agentStates[agent.key];
-          if (!state) return null;
-          const score = confidence?.[agent.key];
-          return (
-            <div
-              key={agent.key}
-              className={`${agent.bg} border ${agent.color} rounded-xl p-5 transition-all`}
+          {/* Top bar */}
+          <div className="w-full max-w-2xl flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-blue-600 dark:text-blue-400">🩺 CareAgent</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">Multi-agent AI health reasoning</p>
+            </div>
+            <button
+              onClick={() => setDark(!dark)}
+              className="text-xs bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-xl hover:shadow transition font-medium text-gray-600 dark:text-gray-300"
             >
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">{agent.icon}</span>
-                <span className={`font-bold text-sm uppercase tracking-widest ${agent.headerColor}`}>
-                  {agent.label}
-                </span>
-                {state.status === "thinking" && !state.result && (
-                  <span className="ml-auto text-xs text-gray-400 animate-pulse">
-                    thinking...
-                  </span>
-                )}
-                {score && (
-                  <span className="ml-auto text-xs bg-gray-800 px-2 py-1 rounded-full text-gray-300">
-                    {score}% confidence
-                  </span>
-                )}
+              {dark ? "☀️ Light" : "🌙 Dark"}
+            </button>
+          </div>
+
+          <div className="w-full max-w-2xl flex flex-col gap-4">
+
+            {/* Timeline */}
+            {(step === STEPS.ANALYZING || step === STEPS.DONE) && (
+              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm px-4">
+                <AgentTimeline agentStates={agentStates} />
               </div>
-              {state.result && (
-                <div className="text-gray-200 text-sm leading-relaxed prose prose-invert max-w-none">
-                  <ReactMarkdown>{state.result}</ReactMarkdown>
+            )}
+
+            {/* Severity */}
+            {sev && severity !== "Emergency" && (
+              <div className={`rounded-2xl px-5 py-3 border flex items-center gap-3 ${sev.bg}`}>
+                <div className={`w-2.5 h-2.5 rounded-full ${sev.dot}`} />
+                <span className={`font-semibold text-sm ${sev.color}`}>Severity: {severity}</span>
+              </div>
+            )}
+
+            {/* Emergency */}
+            {severity === "Emergency" && (
+              <div className="rounded-2xl border-2 border-red-400 bg-red-50 dark:bg-red-950 px-6 py-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-3xl animate-bounce">🚨</span>
+                  <span className="text-red-600 dark:text-red-300 font-black text-lg uppercase tracking-widest">Emergency Detected</span>
+                </div>
+                <p className="text-red-500 dark:text-red-200 text-sm mb-4">Your symptoms may require immediate medical attention. Do not wait.</p>
+                <a href="tel:911" className="block w-full text-center bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition text-lg">
+                  📞 Call 911 Now
+                </a>
+              </div>
+            )}
+
+            {/* Question Input */}
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
+              <p className="text-gray-400 text-xs uppercase tracking-widest font-semibold mb-2">💬 Your Question</p>
+              <textarea
+                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 resize-none transition"
+                rows={3}
+                placeholder="e.g. I have a severe headache and feel nauseous"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                disabled={step !== STEPS.INPUT}
+              />
+              {notHealthMsg && (
+                <p className="mt-2 text-red-500 text-sm font-medium">⚠️ {notHealthMsg}</p>
+              )}
+              {step === STEPS.INPUT && (
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={() => startListening(setQuestion)}
+                    className={`py-3 px-4 rounded-xl border transition font-semibold text-sm
+                      ${listening ? "bg-red-100 border-red-300 text-red-600 animate-pulse dark:bg-red-900 dark:text-red-300" :
+                      "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400"}`}
+                  >
+                    🎤
+                  </button>
+                  <button onClick={handleAsk} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition shadow-sm">
+                    Continue →
+                  </button>
                 </div>
               )}
             </div>
-          );
-        })}
 
-        {step === STEPS.DONE && (
-  <>
-    <div className="text-center text-green-400 text-sm font-semibold">
-      ✅ All agents completed — Always consult a healthcare professional.
-    </div>
-    <button
-      onClick={downloadPDF}
-      className="w-full bg-blue-700 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2"
-    >
-      📄 Download Session Report (PDF)
-    </button>
-    <button
-      onClick={handleReset}
-      className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded-xl transition"
-    >
-      Ask Another Question
-    </button>
-  </>
-)}
+            {/* Clarifying Question */}
+            {(step === STEPS.CLARIFYING || step === STEPS.CONTEXT || step === STEPS.ANALYZING || step === STEPS.DONE) && (
+              <div className="bg-white dark:bg-gray-900 border border-blue-200 dark:border-blue-900 rounded-2xl p-5 shadow-sm">
+                <p className="text-blue-500 text-xs uppercase tracking-widest font-semibold mb-2">🤔 Follow-up Question</p>
+                {step === STEPS.CLARIFYING ? (
+                  <p className="text-gray-400 animate-pulse text-sm">Generating question...</p>
+                ) : (
+                  <>
+                    <p className="text-gray-800 dark:text-white mb-3 font-medium">{clarifyingQuestion}</p>
+                    <textarea
+                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 resize-none transition"
+                      rows={2}
+                      placeholder="Type your answer here..."
+                      value={context}
+                      onChange={(e) => setContext(e.target.value)}
+                      disabled={step !== STEPS.CONTEXT}
+                    />
+                    {step === STEPS.CONTEXT && (
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => startListening(setContext)}
+                          className={`py-3 px-4 rounded-xl border transition font-semibold text-sm
+                            ${listening ? "bg-red-100 border-red-300 text-red-600 animate-pulse dark:bg-red-900 dark:text-red-300" :
+                            "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400"}`}
+                        >
+                          🎤
+                        </button>
+                        <button onClick={handleAnalyze} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition shadow-sm">
+                          🧠 Analyze with All Agents
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
+            {/* Unified Answer */}
+            {step === STEPS.ANALYZING && Object.keys(agentStates).length === 0 && (
+              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
+                <p className="text-gray-400 animate-pulse text-sm text-center">Agents are reasoning...</p>
+              </div>
+            )}
+
+            {unifiedAnswer && (
+              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
+                <p className="text-blue-600 dark:text-blue-400 text-xs uppercase tracking-widest font-semibold mb-4">📋 Analysis & Recommendations</p>
+                <div className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert">
+                  <ReactMarkdown>{unifiedAnswer}</ReactMarkdown>
+                </div>
+
+                {/* Confidence bars */}
+                {confidence && (
+                  <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                    <p className="text-gray-400 text-xs uppercase tracking-widest font-semibold mb-3">Agent Confidence</p>
+                    <div className="flex flex-col gap-2">
+                      <ConfidenceBar label="Classifier" score={confidence.classifier} />
+                      <ConfidenceBar label="Risk" score={confidence.risk} />
+                      <ConfidenceBar label="Recommend" score={confidence.recommendation} />
+                      <ConfidenceBar label="Safety" score={confidence.safety} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Done buttons */}
+            {step === STEPS.DONE && (
+              <>
+                <p className="text-center text-green-600 dark:text-green-400 text-xs font-semibold">
+                  ✅ Analysis complete — Always consult a healthcare professional.
+                </p>
+                <button onClick={downloadPDF} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition shadow-sm flex items-center justify-center gap-2">
+                  📄 Download Report (PDF)
+                </button>
+                <button onClick={handleReset} className="w-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-3 rounded-xl transition border border-gray-200 dark:border-gray-700">
+                  Ask Another Question
+                </button>
+              </>
+            )}
+
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 }

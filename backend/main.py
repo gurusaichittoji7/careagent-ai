@@ -12,6 +12,17 @@ from agent import (
     generate_confidence
 )
 import json
+from agent import (
+    generate_clarifying_question,
+    classify_symptoms,
+    assess_risk,
+    generate_recommendation,
+    safety_check,
+    extract_severity,
+    generate_confidence,
+    is_health_question,
+    generate_unified_summary
+)
 
 app = FastAPI(title="CareAgent API")
 
@@ -36,6 +47,8 @@ def root():
 @app.post("/clarify")
 def clarify(request: QuestionRequest):
     try:
+        if not is_health_question(request.question):
+            return {"error": "not_health", "message": "I can only help with health and medical questions. Please describe a symptom or health concern."}
         clarifying_question = generate_clarifying_question(request.question)
         return {"clarifying_question": clarifying_question}
     except Exception as e:
@@ -76,7 +89,9 @@ def analyze(request: AnalyzeRequest):
             except Exception:
                 confidence = {"classifier": 85, "risk": 80, "recommendation": 78, "safety": 92}
             yield json.dumps({"agent": "confidence", "result": confidence}) + "\n"
-
+            yield json.dumps({"agent": "summary", "status": "thinking"}) + "\n"
+            summary = generate_unified_summary(full_input, classification, risk, recommendation, safety)
+            yield json.dumps({"agent": "summary", "result": summary}) + "\n"
             yield json.dumps({"agent": "done"}) + "\n"
 
         except Exception as e:

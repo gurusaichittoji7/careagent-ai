@@ -7,6 +7,15 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama-3.3-70b-versatile"
 
+def is_health_question(question: str) -> bool:
+    response = run_agent(
+        system_prompt="""You are a health question classifier.
+Determine if the user's message is health or medical related.
+Reply with ONLY one word: YES or NO.""",
+        user_input=question
+    )
+    return response.strip().upper().startswith("YES")
+
 def generate_clarifying_question(question: str) -> str:
     return run_agent(
         system_prompt="""You are a medical interviewer assistant.
@@ -94,6 +103,32 @@ Be brief and focused on safety only.""",
         user_input=recommendation
     )
 
+def generate_unified_summary(question: str, classification: str, risk: str, recommendation: str, safety: str) -> str:
+    return run_agent(
+        system_prompt="""You are a concise medical assistant.
+Given all agent outputs, write a SHORT unified response.
+
+Format exactly like this:
+One sentence summary of the situation.
+
+- Key action 1
+- Key action 2  
+- Key action 3
+
+One sentence safety note.
+
+Rules:
+- Maximum 4 lines total
+- No headers, no bold, no markdown
+- Plain conversational English
+- Be direct and human""",
+        user_input=f"""Question: {question}
+Classification: {classification}
+Risk: {risk}
+Recommendation: {recommendation}
+Safety: {safety}"""
+    )
+
 def extract_severity(risk_text: str) -> str:
     text = risk_text.lower()
     if "emergency" in text:
@@ -131,6 +166,7 @@ def run_pipeline(question: str, context: str = "") -> dict:
     safety = safety_check(recommendation)
     severity = extract_severity(risk)
     confidence = generate_confidence(full_input, classification)
+    summary = generate_unified_summary(full_input, classification, risk, recommendation, safety)
 
     return {
         "classification": classification,
@@ -138,5 +174,6 @@ def run_pipeline(question: str, context: str = "") -> dict:
         "recommendation": recommendation,
         "safety": safety,
         "severity": severity,
-        "confidence": confidence
+        "confidence": confidence,
+        "summary": summary
     }
