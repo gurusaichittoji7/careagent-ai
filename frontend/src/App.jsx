@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import jsPDF from "jspdf";
 
 const AGENTS = [
   {
@@ -208,6 +209,80 @@ export default function App() {
     setConfidence(null);
   };
 
+const downloadPDF = () => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15;
+  const maxWidth = pageWidth - margin * 2;
+  let y = 20;
+
+  const addText = (text, size = 11, bold = false) => {
+    doc.setFontSize(size);
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    const lines = doc.splitTextToSize(text || "", maxWidth);
+    lines.forEach((line) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.text(line, margin, y);
+      y += size * 0.5 + 2;
+    });
+    y += 2;
+  };
+
+  const addSection = (title, content) => {
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFillColor(30, 30, 60);
+    doc.rect(margin - 2, y - 5, maxWidth + 4, 9, "F");
+    doc.setTextColor(150, 180, 255);
+    addText(title, 12, true);
+    doc.setTextColor(30, 30, 30);
+    const clean = content?.replace(/\*\*/g, "").replace(/#+/g, "").trim();
+    addText(clean, 10);
+    y += 4;
+  };
+
+  // Header
+  doc.setFillColor(10, 20, 50);
+  doc.rect(0, 0, pageWidth, 35, "F");
+  doc.setTextColor(100, 160, 255);
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.text("CareAgent", margin, 15);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(180, 180, 180);
+  doc.text("AI Health Reasoning Report", margin, 24);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, margin, 30);
+  y = 45;
+
+  // Severity
+  doc.setTextColor(30, 30, 30);
+  if (severity) {
+    addText(`Severity Level: ${severity}`, 13, true);
+  }
+
+  // Question + Context
+  addText(`Question: ${question}`, 11, true);
+  if (context) addText(`Additional Context: ${context}`, 10);
+  y += 4;
+
+  // Agent Results
+  addSection("SYMPTOM CLASSIFICATION", agentStates.classifier?.result);
+  addSection("RISK ASSESSMENT", agentStates.risk?.result);
+  addSection("RECOMMENDATIONS", agentStates.recommendation?.result);
+  addSection("SAFETY NOTES", agentStates.safety?.result);
+
+  // Footer
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("CareAgent is not a substitute for professional medical advice. Always consult a doctor.", margin, 290);
+  }
+
+  doc.save(`careagent-report-${Date.now()}.pdf`);
+};
+
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center px-4 py-12">
       {/* Header */}
@@ -367,20 +442,25 @@ export default function App() {
           );
         })}
 
-        {/* Done */}
         {step === STEPS.DONE && (
-          <>
-            <div className="text-center text-green-400 text-sm font-semibold">
-              ✅ All agents completed — Always consult a healthcare professional.
-            </div>
-            <button
-              onClick={handleReset}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded-xl transition"
-            >
-              Ask Another Question
-            </button>
-          </>
-        )}
+  <>
+    <div className="text-center text-green-400 text-sm font-semibold">
+      ✅ All agents completed — Always consult a healthcare professional.
+    </div>
+    <button
+      onClick={downloadPDF}
+      className="w-full bg-blue-700 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2"
+    >
+      📄 Download Session Report (PDF)
+    </button>
+    <button
+      onClick={handleReset}
+      className="w-full bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 rounded-xl transition"
+    >
+      Ask Another Question
+    </button>
+  </>
+)}
 
       </div>
     </div>
