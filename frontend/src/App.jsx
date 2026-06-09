@@ -51,7 +51,7 @@ const STEPS = {
   DONE: "done",
 };
 
-function AgentTimeline({ agentStates, analyzing }) {
+function AgentTimeline({ agentStates }) {
   const TIMELINE = [
     { key: "classifier", icon: "🔍", label: "Classify" },
     { key: "risk", icon: "⚠️", label: "Risk" },
@@ -65,10 +65,9 @@ function AgentTimeline({ agentStates, analyzing }) {
         const state = agentStates[agent.key];
         const isThinking = state?.status === "thinking" && !state?.result;
         const isDone = !!state?.result;
-
         return (
           <div key={agent.key} className="flex items-center gap-2">
-            <div className={`flex flex-col items-center gap-1`}>
+            <div className="flex flex-col items-center gap-1">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all duration-500
                 ${isDone ? "border-green-500 bg-green-950" :
                   isThinking ? "border-blue-400 bg-blue-950 animate-pulse" :
@@ -97,6 +96,23 @@ export default function App() {
   const [severity, setSeverity] = useState(null);
   const [confidence, setConfidence] = useState(null);
   const [step, setStep] = useState(STEPS.INPUT);
+  const [listening, setListening] = useState(false);
+
+  const startListening = (setter) => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice input not supported. Try Chrome.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => setListening(false);
+    recognition.onresult = (e) => setter(e.results[0][0].transcript);
+    recognition.onerror = () => setListening(false);
+    recognition.start();
+  };
 
   const handleAsk = async () => {
     if (!question.trim()) return;
@@ -209,37 +225,39 @@ export default function App() {
 
       <div className="w-full max-w-2xl flex flex-col gap-4">
 
+        {/* Agent Timeline */}
         {(step === STEPS.ANALYZING || step === STEPS.DONE) && (
-  <AgentTimeline agentStates={agentStates} analyzing={step === STEPS.ANALYZING} />
-)}
+          <AgentTimeline agentStates={agentStates} />
+        )}
 
         {/* Severity Banner */}
-{severity && severity !== "Emergency" && (
-  <div className={`rounded-xl px-5 py-3 flex items-center justify-between ${SEVERITY_STYLES[severity]}`}>
-    <span className="font-bold text-sm uppercase tracking-widest">
-      {severity === "High" ? "🔴" : severity === "Moderate" ? "🟡" : "🟢"} Severity: {severity}
-    </span>
-  </div>
-)}
+        {severity && severity !== "Emergency" && (
+          <div className={`rounded-xl px-5 py-3 flex items-center justify-between ${SEVERITY_STYLES[severity]}`}>
+            <span className="font-bold text-sm uppercase tracking-widest">
+              {severity === "High" ? "🔴" : severity === "Moderate" ? "🟡" : "🟢"} Severity: {severity}
+            </span>
+          </div>
+        )}
 
-{severity === "Emergency" && (
-  <div className="rounded-xl border-2 border-red-500 bg-red-950 px-6 py-5 animate-pulse">
-    <div className="flex items-center gap-3 mb-2">
-      <span className="text-3xl">🚨</span>
-      <span className="text-red-300 font-black text-lg uppercase tracking-widest">
-        Emergency Detected
-      </span>
-    </div>
-    <p className="text-red-200 text-sm mb-4">
-      Your symptoms may require immediate medical attention. Do not wait.
-    </p>
-    <a
-      href="tel:911"
-      className="block w-full text-center bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition text-lg">
-      📞 Call 911 Now
-    </a>
-  </div>
-)}
+        {/* Emergency Alert */}
+        {severity === "Emergency" && (
+          <div className="rounded-xl border-2 border-red-500 bg-red-950 px-6 py-5 animate-pulse">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-3xl">🚨</span>
+              <span className="text-red-300 font-black text-lg uppercase tracking-widest">
+                Emergency Detected
+              </span>
+            </div>
+            <p className="text-red-200 text-sm mb-4">
+              Your symptoms may require immediate medical attention. Do not wait.
+            </p>
+            <a
+              href="tel:911"
+              className="block w-full text-center bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition text-lg">
+              📞 Call 911 Now
+            </a>
+          </div>
+        )}
 
         {/* Question Input */}
         <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
@@ -255,12 +273,21 @@ export default function App() {
             disabled={step !== STEPS.INPUT}
           />
           {step === STEPS.INPUT && (
-            <button
-              onClick={handleAsk}
-              className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition"
-            >
-              Continue →
-            </button>
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => startListening(setQuestion)}
+                className={`py-3 px-5 rounded-xl transition font-semibold ${listening ? "bg-red-600 animate-pulse" : "bg-gray-700 hover:bg-gray-600"} text-white`}
+                title="Speak your question"
+              >
+                🎤
+              </button>
+              <button
+                onClick={handleAsk}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition"
+              >
+                Continue →
+              </button>
+            </div>
           )}
         </div>
 
@@ -284,12 +311,21 @@ export default function App() {
                   disabled={step !== STEPS.CONTEXT}
                 />
                 {step === STEPS.CONTEXT && (
-                  <button
-                    onClick={handleAnalyze}
-                    className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition"
-                  >
-                    🧠 Analyze with All Agents
-                  </button>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() => startListening(setContext)}
+                      className={`py-3 px-5 rounded-xl transition font-semibold ${listening ? "bg-red-600 animate-pulse" : "bg-gray-700 hover:bg-gray-600"} text-white`}
+                      title="Speak your answer"
+                    >
+                      🎤
+                    </button>
+                    <button
+                      onClick={handleAnalyze}
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition"
+                    >
+                      🧠 Analyze with All Agents
+                    </button>
+                  </div>
                 )}
               </>
             )}
