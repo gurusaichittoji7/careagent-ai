@@ -98,6 +98,7 @@ export default function App() {
   const [confidence, setConfidence] = useState(null);
   const [step, setStep] = useState(STEPS.INPUT);
   const [listening, setListening] = useState(false);
+  const [history, setHistory] = useState([]);
 
   const startListening = (setter) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -200,14 +201,25 @@ export default function App() {
   };
 
   const handleReset = () => {
-    setStep(STEPS.INPUT);
-    setQuestion("");
-    setClarifyingQuestion("");
-    setContext("");
-    setAgentStates({});
-    setSeverity(null);
-    setConfidence(null);
-  };
+  if (step === STEPS.DONE && question) {
+    setHistory((prev) => [
+      {
+        question,
+        context,
+        severity,
+        timestamp: new Date().toLocaleTimeString(),
+      },
+      ...prev,
+    ]);
+  }
+  setStep(STEPS.INPUT);
+  setQuestion("");
+  setClarifyingQuestion("");
+  setContext("");
+  setAgentStates({});
+  setSeverity(null);
+  setConfidence(null);
+};
 
 const downloadPDF = () => {
   const doc = new jsPDF();
@@ -284,8 +296,33 @@ const downloadPDF = () => {
 };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center px-4 py-12">
-      {/* Header */}
+  <div className="min-h-screen bg-gray-950 text-white flex">
+
+    {/* Sidebar */}
+    <div className="hidden md:flex flex-col w-64 bg-gray-900 border-r border-gray-800 p-4 gap-3 min-h-screen">
+      <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">🕐 Session History</p>
+      {history.length === 0 && (
+        <p className="text-gray-600 text-xs">No history yet. Ask a question to get started.</p>
+      )}
+      {history.map((item, i) => (
+        <div key={i} className="bg-gray-800 rounded-xl p-3 border border-gray-700">
+          <p className="text-white text-xs font-semibold truncate">{item.question}</p>
+          <div className="flex items-center justify-between mt-1">
+            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold
+              ${item.severity === "Emergency" ? "bg-red-800 text-red-200" :
+                item.severity === "High" ? "bg-orange-800 text-orange-200" :
+                item.severity === "Moderate" ? "bg-yellow-800 text-yellow-200" :
+                "bg-green-800 text-green-200"}`}>
+              {item.severity || "Unknown"}
+            </span>
+            <span className="text-gray-500 text-xs">{item.timestamp}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {/* Main Content */}
+    <div className="flex-1 flex flex-col items-center px-4 py-12">
       <h1 className="text-4xl font-bold text-blue-400 mb-1">🩺 CareAgent</h1>
       <p className="text-gray-400 mb-2 text-center text-sm">
         Multi-agent AI health reasoning — powered by 4 specialized agents
@@ -464,5 +501,6 @@ const downloadPDF = () => {
 
       </div>
     </div>
-  );
+  </div>
+);
 }
