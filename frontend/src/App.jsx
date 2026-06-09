@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import jsPDF from "jspdf";
+import { TypeAnimation } from "react-type-animation";
 
 const AGENTS = [
   { key: "classifier", icon: "🔍", label: "Classify" },
@@ -456,7 +457,12 @@ export default function App() {
 
   return (
     <div className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed space-y-3">
-      <p>{intro}</p>
+      <TypeAnimation
+  sequence={[intro]}
+  speed={70}
+  cursor={false}
+  wrapper="p"
+/>
       {bullets.length > 0 && (
         <ul className="space-y-2">
           {bullets.map((b, i) => (
