@@ -94,6 +94,33 @@ Be brief and focused on safety only.""",
         user_input=recommendation
     )
 
+def extract_severity(risk_text: str) -> str:
+    text = risk_text.lower()
+    if "emergency" in text:
+        return "Emergency"
+    elif "high" in text:
+        return "High"
+    elif "moderate" in text:
+        return "Moderate"
+    else:
+        return "Low"
+
+
+def generate_confidence(question: str, classification: str) -> dict:
+    return run_agent(
+        system_prompt="""You are a medical confidence scorer.
+Given a symptom classification, return confidence scores for each agent's analysis.
+Respond ONLY in this exact JSON format with no extra text:
+{
+  "classifier": 90,
+  "risk": 85,
+  "recommendation": 80,
+  "safety": 95
+}
+Values must be integers between 60 and 99.""",
+        user_input=f"Question: {question}\nClassification: {classification}"
+    )
+
 
 def run_pipeline(question: str, context: str = "") -> dict:
     full_input = f"{question}\nAdditional context: {context}" if context else question
@@ -102,10 +129,14 @@ def run_pipeline(question: str, context: str = "") -> dict:
     risk = assess_risk(full_input, classification)
     recommendation = generate_recommendation(full_input, risk)
     safety = safety_check(recommendation)
+    severity = extract_severity(risk)
+    confidence = generate_confidence(full_input, classification)
 
     return {
         "classification": classification,
         "risk": risk,
         "recommendation": recommendation,
-        "safety": safety
+        "safety": safety,
+        "severity": severity,
+        "confidence": confidence
     }

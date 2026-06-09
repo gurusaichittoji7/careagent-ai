@@ -36,6 +36,13 @@ const AGENTS = [
   },
 ];
 
+const SEVERITY_STYLES = {
+  Low: "bg-green-800 text-green-200",
+  Moderate: "bg-yellow-800 text-yellow-200",
+  High: "bg-orange-800 text-orange-200",
+  Emergency: "bg-red-800 text-red-200 animate-pulse",
+};
+
 const STEPS = {
   INPUT: "input",
   CLARIFYING: "clarifying",
@@ -44,17 +51,59 @@ const STEPS = {
   DONE: "done",
 };
 
+function AgentTimeline({ agentStates, analyzing }) {
+  const TIMELINE = [
+    { key: "classifier", icon: "🔍", label: "Classify" },
+    { key: "risk", icon: "⚠️", label: "Risk" },
+    { key: "recommendation", icon: "💊", label: "Recommend" },
+    { key: "safety", icon: "🛡️", label: "Safety" },
+  ];
+
+  return (
+    <div className="flex items-center justify-between w-full bg-gray-900 border border-gray-700 rounded-xl px-6 py-4">
+      {TIMELINE.map((agent, i) => {
+        const state = agentStates[agent.key];
+        const isThinking = state?.status === "thinking" && !state?.result;
+        const isDone = !!state?.result;
+
+        return (
+          <div key={agent.key} className="flex items-center gap-2">
+            <div className={`flex flex-col items-center gap-1`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 transition-all duration-500
+                ${isDone ? "border-green-500 bg-green-950" :
+                  isThinking ? "border-blue-400 bg-blue-950 animate-pulse" :
+                  "border-gray-700 bg-gray-800"}`}>
+                {agent.icon}
+              </div>
+              <span className={`text-xs ${isDone ? "text-green-400" : isThinking ? "text-blue-400 animate-pulse" : "text-gray-600"}`}>
+                {agent.label}
+              </span>
+            </div>
+            {i < TIMELINE.length - 1 && (
+              <div className={`h-0.5 w-12 mx-1 mb-4 transition-all duration-500 ${isDone ? "bg-green-500" : "bg-gray-700"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function App() {
   const [question, setQuestion] = useState("");
   const [clarifyingQuestion, setClarifyingQuestion] = useState("");
   const [context, setContext] = useState("");
   const [agentStates, setAgentStates] = useState({});
+  const [severity, setSeverity] = useState(null);
+  const [confidence, setConfidence] = useState(null);
   const [step, setStep] = useState(STEPS.INPUT);
 
   const handleAsk = async () => {
     if (!question.trim()) return;
     setStep(STEPS.CLARIFYING);
     setAgentStates({});
+    setSeverity(null);
+    setConfidence(null);
     setClarifyingQuestion("");
     setContext("");
 
@@ -76,6 +125,8 @@ export default function App() {
   const handleAnalyze = async () => {
     setStep(STEPS.ANALYZING);
     setAgentStates({});
+    setSeverity(null);
+    setConfidence(null);
 
     try {
       const res = await fetch("http://localhost:8000/analyze", {
@@ -102,6 +153,17 @@ export default function App() {
             const data = JSON.parse(line);
             if (data.agent === "done") {
               setStep(STEPS.DONE);
+            } else if (data.agent === "confidence" && data.result) {
+              setConfidence(data.result);
+            } else if (data.agent === "risk" && data.severity) {
+              setSeverity(data.severity);
+              setAgentStates((prev) => ({
+                ...prev,
+                risk: {
+                  status: data.status || "done",
+                  result: data.result || prev.risk?.result,
+                },
+              }));
             } else {
               setAgentStates((prev) => ({
                 ...prev,
@@ -126,6 +188,8 @@ export default function App() {
     setClarifyingQuestion("");
     setContext("");
     setAgentStates({});
+    setSeverity(null);
+    setConfidence(null);
   };
 
   return (
@@ -145,7 +209,39 @@ export default function App() {
 
       <div className="w-full max-w-2xl flex flex-col gap-4">
 
-        {/* Step 1: Question Input */}
+        {(step === STEPS.ANALYZING || step === STEPS.DONE) && (
+  <AgentTimeline agentStates={agentStates} analyzing={step === STEPS.ANALYZING} />
+)}
+
+        {/* Severity Banner */}
+{severity && severity !== "Emergency" && (
+  <div className={`rounded-xl px-5 py-3 flex items-center justify-between ${SEVERITY_STYLES[severity]}`}>
+    <span className="font-bold text-sm uppercase tracking-widest">
+      {severity === "High" ? "🔴" : severity === "Moderate" ? "🟡" : "🟢"} Severity: {severity}
+    </span>
+  </div>
+)}
+
+{severity === "Emergency" && (
+  <div className="rounded-xl border-2 border-red-500 bg-red-950 px-6 py-5 animate-pulse">
+    <div className="flex items-center gap-3 mb-2">
+      <span className="text-3xl">🚨</span>
+      <span className="text-red-300 font-black text-lg uppercase tracking-widest">
+        Emergency Detected
+      </span>
+    </div>
+    <p className="text-red-200 text-sm mb-4">
+      Your symptoms may require immediate medical attention. Do not wait.
+    </p>
+    <a
+      href="tel:911"
+      className="block w-full text-center bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition text-lg">
+      📞 Call 911 Now
+    </a>
+  </div>
+)}
+
+        {/* Question Input */}
         <div className="bg-gray-900 border border-gray-700 rounded-xl p-5">
           <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">
             💬 Your Question
@@ -168,7 +264,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Step 2: Clarifying Question */}
+        {/* Clarifying Question */}
         {(step === STEPS.CLARIFYING || step === STEPS.CONTEXT || step === STEPS.ANALYZING || step === STEPS.DONE) && (
           <div className="bg-gray-900 border border-blue-800 rounded-xl p-5">
             <p className="text-blue-400 text-xs uppercase tracking-widest mb-2">
@@ -204,6 +300,7 @@ export default function App() {
         {AGENTS.map((agent) => {
           const state = agentStates[agent.key];
           if (!state) return null;
+          const score = confidence?.[agent.key];
           return (
             <div
               key={agent.key}
@@ -214,9 +311,14 @@ export default function App() {
                 <span className={`font-bold text-sm uppercase tracking-widest ${agent.headerColor}`}>
                   {agent.label}
                 </span>
-                {state.status === "thinking" && (
+                {state.status === "thinking" && !state.result && (
                   <span className="ml-auto text-xs text-gray-400 animate-pulse">
                     thinking...
+                  </span>
+                )}
+                {score && (
+                  <span className="ml-auto text-xs bg-gray-800 px-2 py-1 rounded-full text-gray-300">
+                    {score}% confidence
                   </span>
                 )}
               </div>

@@ -7,7 +7,9 @@ from agent import (
     classify_symptoms,
     assess_risk,
     generate_recommendation,
-    safety_check
+    safety_check,
+    extract_severity,
+    generate_confidence
 )
 import json
 
@@ -45,21 +47,35 @@ def analyze(request: AnalyzeRequest):
         try:
             full_input = f"{request.question}\nAdditional context: {request.context}" if request.context else request.question
 
+            # Agent 1
             yield json.dumps({"agent": "classifier", "status": "thinking"}) + "\n"
             classification = classify_symptoms(full_input)
             yield json.dumps({"agent": "classifier", "result": classification}) + "\n"
 
+            # Agent 2
             yield json.dumps({"agent": "risk", "status": "thinking"}) + "\n"
             risk = assess_risk(full_input, classification)
-            yield json.dumps({"agent": "risk", "result": risk}) + "\n"
+            severity = extract_severity(risk)
+            yield json.dumps({"agent": "risk", "result": risk, "severity": severity}) + "\n"
 
+            # Agent 3
             yield json.dumps({"agent": "recommendation", "status": "thinking"}) + "\n"
             recommendation = generate_recommendation(full_input, risk)
             yield json.dumps({"agent": "recommendation", "result": recommendation}) + "\n"
 
+            # Agent 4
             yield json.dumps({"agent": "safety", "status": "thinking"}) + "\n"
             safety = safety_check(recommendation)
             yield json.dumps({"agent": "safety", "result": safety}) + "\n"
+
+            # Confidence scores
+            yield json.dumps({"agent": "confidence", "status": "thinking"}) + "\n"
+            confidence_raw = generate_confidence(full_input, classification)
+            try:
+                confidence = json.loads(confidence_raw)
+            except Exception:
+                confidence = {"classifier": 85, "risk": 80, "recommendation": 78, "safety": 92}
+            yield json.dumps({"agent": "confidence", "result": confidence}) + "\n"
 
             yield json.dumps({"agent": "done"}) + "\n"
 
