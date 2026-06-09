@@ -133,11 +133,11 @@ Safety: {safety}"""
 
 def extract_severity(risk_text: str) -> str:
     text = risk_text.lower()
-    if "emergency" in text:
+    if "emergency" in text or "call 911" in text or "life-threatening" in text:
         return "Emergency"
-    elif "high" in text:
+    elif "high" in text and any(w in text for w in ["fracture", "cardiac", "stroke", "severe", "immediate"]):
         return "High"
-    elif "moderate" in text:
+    elif "moderate" in text or "high" in text:
         return "Moderate"
     else:
         return "Low"

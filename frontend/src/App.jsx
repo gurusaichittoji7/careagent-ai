@@ -3,6 +3,66 @@ import ReactMarkdown from "react-markdown";
 import jsPDF from "jspdf";
 import { TypeAnimation } from "react-type-animation";
 
+function SeverityGauge({ severity }) {
+  const levels = { Low: 1, Moderate: 2, High: 3, Emergency: 4 };
+  const colors = {
+    Low: "#22c55e",
+    Moderate: "#eab308",
+    High: "#f97316",
+    Emergency: "#ef4444",
+  };
+  const level = levels[severity] || 0;
+  const color = colors[severity] || "#6b7280";
+  const percentage = (level / 4) * 100;
+
+  return (
+    <div className="flex flex-col items-center gap-2 py-4">
+      <div className="relative w-36 h-36">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+          {/* Background arc */}
+          <circle
+            cx="50" cy="50" r="40"
+            fill="none"
+            stroke="#e5e7eb"
+            strokeWidth="10"
+            strokeDasharray="188 251"
+            strokeLinecap="round"
+            className="dark:stroke-gray-700"
+          />
+          {/* Foreground arc */}
+          <circle
+            cx="50" cy="50" r="40"
+            fill="none"
+            stroke={color}
+            strokeWidth="10"
+            strokeDasharray={`${(percentage / 100) * 188} 251`}
+            strokeLinecap="round"
+            style={{ transition: "stroke-dasharray 1s ease" }}
+          />
+        </svg>
+        {/* Center text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
+          <span className="text-2xl font-black" style={{ color }}>
+            {level}/4
+          </span>
+          <span className="text-xs font-semibold" style={{ color }}>
+            {severity}
+          </span>
+        </div>
+      </div>
+      <div className="flex gap-2 text-xs text-gray-400 dark:text-gray-500">
+        <span className="text-green-500 font-medium">Low</span>
+        <span>·</span>
+        <span className="text-yellow-500 font-medium">Moderate</span>
+        <span>·</span>
+        <span className="text-orange-500 font-medium">High</span>
+        <span>·</span>
+        <span className="text-red-500 font-medium">Emergency</span>
+      </div>
+    </div>
+  );
+}
+
 const AGENTS = [
   { key: "classifier", icon: "🔍", label: "Classify" },
   { key: "risk", icon: "⚠️", label: "Risk" },
@@ -343,13 +403,17 @@ export default function App() {
               </div>
             )}
 
-            {/* Severity */}
             {sev && severity !== "Emergency" && (
-              <div className={`rounded-2xl px-5 py-3 border flex items-center gap-3 ${sev.bg}`}>
-                <div className={`w-2.5 h-2.5 rounded-full ${sev.dot}`} />
-                <span className={`font-semibold text-sm ${sev.color}`}>Severity: {severity}</span>
-              </div>
-            )}
+  <div className={`rounded-2xl px-5 py-4 border flex items-center gap-6 ${sev.bg}`}>
+    <SeverityGauge severity={severity} />
+    <div>
+      <p className={`font-bold text-lg ${sev.color}`}>Severity: {severity}</p>
+      <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+        Based on your symptoms and context
+      </p>
+    </div>
+  </div>
+)}
 
             {/* Emergency */}
             {severity === "Emergency" && (
