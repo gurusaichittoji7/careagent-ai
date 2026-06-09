@@ -7,6 +7,20 @@ load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 MODEL = "llama-3.3-70b-versatile"
 
+def generate_clarifying_question(question: str) -> str:
+    return run_agent(
+        system_prompt="""You are a medical interviewer assistant.
+Given a user's health question, generate ONE smart follow-up question to better understand their situation.
+
+Rules:
+- Ask only ONE question
+- Keep it short and conversational
+- Focus on duration, severity, or accompanying symptoms
+- Never diagnose
+- Return only the question, nothing else""",
+        user_input=question
+    )
+
 
 def run_agent(system_prompt: str, user_input: str) -> str:
     response = client.chat.completions.create(
@@ -81,10 +95,12 @@ Be brief and focused on safety only.""",
     )
 
 
-def run_pipeline(question: str) -> dict:
-    classification = classify_symptoms(question)
-    risk = assess_risk(question, classification)
-    recommendation = generate_recommendation(question, risk)
+def run_pipeline(question: str, context: str = "") -> dict:
+    full_input = f"{question}\nAdditional context: {context}" if context else question
+
+    classification = classify_symptoms(full_input)
+    risk = assess_risk(full_input, classification)
+    recommendation = generate_recommendation(full_input, risk)
     safety = safety_check(recommendation)
 
     return {

@@ -2,7 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from agent import classify_symptoms, assess_risk, generate_recommendation, safety_check
+from agent import (
+    generate_clarifying_question,
+    classify_symptoms,
+    assess_risk,
+    generate_recommendation,
+    safety_check
+)
 import json
 
 app = FastAPI(title="CareAgent API")
@@ -17,34 +23,40 @@ app.add_middleware(
 class QuestionRequest(BaseModel):
     question: str
 
+class AnalyzeRequest(BaseModel):
+    question: str
+    context: str = ""
+
 @app.get("/")
 def root():
     return {"status": "CareAgent 2.0 is running"}
 
-@app.post("/ask")
-def ask(request: QuestionRequest):
-    question = request.question.strip()
-    if not question:
-        return {"error": "Question cannot be empty"}
+@app.post("/clarify")
+def clarify(request: QuestionRequest):
+    try:
+        clarifying_question = generate_clarifying_question(request.question)
+        return {"clarifying_question": clarifying_question}
+    except Exception as e:
+        return {"error": str(e)}
 
+@app.post("/analyze")
+def analyze(request: AnalyzeRequest):
     def stream():
         try:
-            # Agent 1
+            full_input = f"{request.question}\nAdditional context: {request.context}" if request.context else request.question
+
             yield json.dumps({"agent": "classifier", "status": "thinking"}) + "\n"
-            classification = classify_symptoms(question)
+            classification = classify_symptoms(full_input)
             yield json.dumps({"agent": "classifier", "result": classification}) + "\n"
 
-            # Agent 2
             yield json.dumps({"agent": "risk", "status": "thinking"}) + "\n"
-            risk = assess_risk(question, classification)
+            risk = assess_risk(full_input, classification)
             yield json.dumps({"agent": "risk", "result": risk}) + "\n"
 
-            # Agent 3
             yield json.dumps({"agent": "recommendation", "status": "thinking"}) + "\n"
-            recommendation = generate_recommendation(question, risk)
+            recommendation = generate_recommendation(full_input, risk)
             yield json.dumps({"agent": "recommendation", "result": recommendation}) + "\n"
 
-            # Agent 4
             yield json.dumps({"agent": "safety", "status": "thinking"}) + "\n"
             safety = safety_check(recommendation)
             yield json.dumps({"agent": "safety", "result": safety}) + "\n"
