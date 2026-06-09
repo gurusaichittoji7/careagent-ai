@@ -108,20 +108,22 @@ def generate_unified_summary(question: str, classification: str, risk: str, reco
         system_prompt="""You are a concise medical assistant.
 Given all agent outputs, write a SHORT unified response.
 
-Format exactly like this:
-One sentence summary of the situation.
+Format EXACTLY like this example:
+You have a tension headache that is low severity and manageable at home.
 
-- Key action 1
-- Key action 2  
-- Key action 3
+- Rest in a quiet room and stay hydrated
+- Take acetaminophen or ibuprofen as directed
+- Apply a cold or warm compress to your forehead
 
-One sentence safety note.
+See a doctor if symptoms worsen or persist beyond 48 hours.
 
 Rules:
-- Maximum 4 lines total
-- No headers, no bold, no markdown
+- First line: one sentence describing the situation
+- Exactly 3 bullet points starting with •
+- Last line: one sentence safety note
+- No headers, no bold, no markdown symbols
 - Plain conversational English
-- Be direct and human""",
+- Maximum 6 lines total""",
         user_input=f"""Question: {question}
 Classification: {classification}
 Risk: {risk}

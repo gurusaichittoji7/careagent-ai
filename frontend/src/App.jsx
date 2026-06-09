@@ -440,26 +440,56 @@ export default function App() {
             )}
 
             {unifiedAnswer && (
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <p className="text-blue-600 dark:text-blue-400 text-xs uppercase tracking-widest font-semibold mb-4">📋 Analysis & Recommendations</p>
-                <div className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert">
-                  <ReactMarkdown>{unifiedAnswer}</ReactMarkdown>
-                </div>
+  <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
+    <p className="text-blue-600 dark:text-blue-400 text-xs uppercase tracking-widest font-semibold mb-4">📋 Analysis & Recommendations</p>
+    
+    {(() => {
+  const lines = unifiedAnswer
+    .split(/\n/)
+    .map(s => s.trim())
+    .filter(Boolean);
 
-                {/* Confidence bars */}
-                {confidence && (
-                  <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
-                    <p className="text-gray-400 text-xs uppercase tracking-widest font-semibold mb-3">Agent Confidence</p>
-                    <div className="flex flex-col gap-2">
-                      <ConfidenceBar label="Classifier" score={confidence.classifier} />
-                      <ConfidenceBar label="Risk" score={confidence.risk} />
-                      <ConfidenceBar label="Recommend" score={confidence.recommendation} />
-                      <ConfidenceBar label="Safety" score={confidence.safety} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+  const intro = lines.find(l => !l.startsWith("•"));
+  const bullets = lines.filter(l => l.startsWith("•")).map(l => l.replace("•", "").trim());
+  const footerLines = lines.filter(l => !l.startsWith("•") && l !== intro);
+  const footer = footerLines.join(" ");
+
+  return (
+    <div className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed space-y-3">
+      <p>{intro}</p>
+      {bullets.length > 0 && (
+        <ul className="space-y-2">
+          {bullets.map((b, i) => (
+            <li key={i} className="flex items-start gap-2">
+              <span className="text-blue-500 mt-0.5">•</span>
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {footer && (
+        <p className="text-gray-500 dark:text-gray-400 text-xs border-t border-gray-100 dark:border-gray-800 pt-3 mt-3">
+          ⚠️ {footer}
+        </p>
+      )}
+    </div>
+  );
+})()}
+
+    {/* Confidence bars */}
+    {confidence && (
+      <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+        <p className="text-gray-400 text-xs uppercase tracking-widest font-semibold mb-3">Agent Confidence</p>
+        <div className="flex flex-col gap-2">
+          <ConfidenceBar label="Classifier" score={confidence.classifier} />
+          <ConfidenceBar label="Risk" score={confidence.risk} />
+          <ConfidenceBar label="Recommend" score={confidence.recommendation} />
+          <ConfidenceBar label="Safety" score={confidence.safety} />
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
             {/* Done buttons */}
             {step === STEPS.DONE && (
