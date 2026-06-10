@@ -147,6 +147,9 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [notHealthMsg, setNotHealthMsg] = useState("");
   const [unifiedAnswer, setUnifiedAnswer] = useState("");
+  const [followUpInput, setFollowUpInput] = useState("");
+  const [followUpMessages, setFollowUpMessages] = useState([]);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
 
   const startListening = (setter) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -266,6 +269,8 @@ export default function App() {
     setConfidence(null);
     setUnifiedAnswer("");
     setNotHealthMsg("");
+    setFollowUpMessages([]);
+    setFollowUpInput("");
   };
 
   const loadFromHistory = (item) => {
@@ -285,6 +290,38 @@ export default function App() {
     const margin = 15;
     const maxWidth = pageWidth - margin * 2;
     let y = 20;
+
+  const handleFollowUp = async () => {
+  if (!followUpInput.trim() || followUpLoading) return;
+  const userMsg = followUpInput.trim();
+  setFollowUpInput("");
+  setFollowUpMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+  setFollowUpLoading(true);
+
+  try {
+    const res = await fetch("http://localhost:8000/followup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        original_question: question,
+        context: context,
+        analysis_summary: unifiedAnswer,
+        followup: userMsg,
+      }),
+    });
+    const data = await res.json();
+    setFollowUpMessages((prev) => [
+      ...prev,
+      { role: "agent", text: data.answer || "Sorry, something went wrong." },
+    ]);
+  } catch {
+    setFollowUpMessages((prev) => [
+      ...prev,
+      { role: "agent", text: "Connection error. Please try again." },
+    ]);
+  }
+  setFollowUpLoading(false);
+};
 
     const addText = (text, size = 11, bold = false) => {
       doc.setFontSize(size);
@@ -507,46 +544,33 @@ export default function App() {
             {unifiedAnswer && (
   <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
     <p className="text-blue-600 dark:text-blue-400 text-xs uppercase tracking-widest font-semibold mb-4">📋 Analysis & Recommendations</p>
-    
     {(() => {
-  const lines = unifiedAnswer
-    .split(/\n/)
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  const intro = lines.find(l => !l.startsWith("•"));
-  const bullets = lines.filter(l => l.startsWith("•")).map(l => l.replace("•", "").trim());
-  const footerLines = lines.filter(l => !l.startsWith("•") && l !== intro);
-  const footer = footerLines.join(" ");
-
-  return (
-    <div className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed space-y-3">
-      <TypeAnimation
-  sequence={[intro]}
-  speed={70}
-  cursor={false}
-  wrapper="p"
-/>
-      {bullets.length > 0 && (
-        <ul className="space-y-2">
-          {bullets.map((b, i) => (
-            <li key={i} className="flex items-start gap-2">
-              <span className="text-blue-500 mt-0.5">•</span>
-              <span>{b}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {footer && (
-        <p className="text-gray-500 dark:text-gray-400 text-xs border-t border-gray-100 dark:border-gray-800 pt-3 mt-3">
-          ⚠️ {footer}
-        </p>
-      )}
-    </div>
-  );
-})()}
-
-    {/* Confidence bars */}
+      const lines = unifiedAnswer.split(/\n/).map(s => s.trim()).filter(Boolean);
+      const intro = lines.find(l => !l.startsWith("•"));
+      const bullets = lines.filter(l => l.startsWith("•")).map(l => l.replace("•", "").trim());
+      const footerLines = lines.filter(l => !l.startsWith("•") && l !== intro);
+      const footer = footerLines.join(" ");
+      return (
+        <div className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed space-y-3">
+          <p>{intro}</p>
+          {bullets.length > 0 && (
+            <ul className="space-y-2">
+              {bullets.map((b, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="text-blue-500 mt-0.5">•</span>
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {footer && (
+            <p className="text-gray-500 dark:text-gray-400 text-xs border-t border-gray-100 dark:border-gray-800 pt-3 mt-3">
+              ⚠️ {footer}
+            </p>
+          )}
+        </div>
+      );
+    })()}
     {confidence && (
       <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
         <p className="text-gray-400 text-xs uppercase tracking-widest font-semibold mb-3">Agent Confidence</p>
@@ -559,9 +583,8 @@ export default function App() {
       </div>
     )}
   </div>
-)}
-
-            {/* Done buttons */}
+  )}
+  {/* Done buttons */}
             {step === STEPS.DONE && (
               <>
                 <p className="text-center text-green-600 dark:text-green-400 text-xs font-semibold">
@@ -573,9 +596,54 @@ export default function App() {
                 <button onClick={handleReset} className="w-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-3 rounded-xl transition border border-gray-200 dark:border-gray-700">
                   Ask Another Question
                 </button>
+
+                {/* Follow-up Chat */}
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm">
+                  <p className="text-blue-600 dark:text-blue-400 text-xs uppercase tracking-widest font-semibold mb-4">
+                    💬 Ask a Follow-up
+                  </p>
+                  <div className="flex flex-col gap-3 mb-4">
+                    {followUpMessages.length === 0 && (
+                      <p className="text-gray-400 text-xs">Ask anything about your analysis...</p>
+                    )}
+                    {followUpMessages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`rounded-xl px-4 py-3 text-sm max-w-[85%] ${
+                          msg.role === "user"
+                            ? "bg-blue-600 text-white self-end ml-auto"
+                            : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 self-start"
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                    ))}
+                    {followUpLoading && (
+                      <div className="bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-3 text-sm text-gray-400 animate-pulse self-start">
+                        Thinking...
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-blue-400"
+                      placeholder="e.g. Is this safe for kids?"
+                      value={followUpInput}
+                      onChange={(e) => setFollowUpInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
+                    />
+                    <button
+                      onClick={handleFollowUp}
+                      disabled={followUpLoading}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl text-sm font-semibold transition"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
               </>
             )}
-
           </div>
         </div>
       </div>

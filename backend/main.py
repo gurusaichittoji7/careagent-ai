@@ -21,7 +21,8 @@ from agent import (
     extract_severity,
     generate_confidence,
     is_health_question,
-    generate_unified_summary
+    generate_unified_summary,
+    run_agent
 )
 
 app = FastAPI(title="CareAgent API")
@@ -98,3 +99,26 @@ def analyze(request: AnalyzeRequest):
             yield json.dumps({"agent": "error", "result": str(e)}) + "\n"
 
     return StreamingResponse(stream(), media_type="text/plain")
+
+class FollowUpRequest(BaseModel):
+    original_question: str
+    context: str
+    analysis_summary: str
+    followup: str
+
+@app.post("/followup")
+def followup(request: FollowUpRequest):
+    try:
+        answer = run_agent(
+            system_prompt="""You are CareAgent, a helpful medical assistant.
+The user already received an analysis. They are asking a follow-up question.
+Use the original context and analysis to give a SHORT, direct answer.
+Maximum 3-4 sentences. Plain English. No headers or bullet points.""",
+            user_input=f"""Original question: {request.original_question}
+Context: {request.context}
+Analysis summary: {request.analysis_summary}
+Follow-up question: {request.followup}"""
+        )
+        return {"answer": answer}
+    except Exception as e:
+        return {"error": str(e)}
