@@ -56,6 +56,17 @@ const getWorseningAlert = (currentSeverity, historyItems) => {
   return null;
 };
 
+const calculateHealthScore = (sev, conf) => {
+  if (!sev) return null;
+  const severityPenalty = { Low: 0, Moderate: 20, High: 40, Emergency: 70 };
+  const avgConfidence = conf
+    ? (conf.classifier + conf.risk + conf.recommendation + conf.safety) / 4
+    : 80;
+  const base = 100 - (severityPenalty[sev] || 0);
+  const score = Math.round(base * (avgConfidence / 100));
+  return Math.max(10, Math.min(99, score));
+};
+
 const AGENTS = [
   { key: "classifier", icon: "🔍", label: "Classify" },
   { key: "risk", icon: "⚠️", label: "Risk" },
@@ -138,6 +149,34 @@ function AgentTimeline({ agentStates }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function HealthScore({ score }) {
+  const color = score >= 80 ? "#22c55e" : score >= 55 ? "#eab308" : score >= 35 ? "#f97316" : "#ef4444";
+  const label = score >= 80 ? "Good" : score >= 55 ? "Moderate" : score >= 35 ? "Poor" : "Critical";
+  const circumference = 2 * Math.PI * 40;
+  const offset = circumference - (score / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative w-24 h-24">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb"
+            strokeWidth="10" className="dark:stroke-gray-700" />
+          <circle cx="50" cy="50" r="40" fill="none" stroke={color}
+            strokeWidth="10" strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{ transition: "stroke-dashoffset 1.5s ease" }} />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-black" style={{ color }}>{score}</span>
+          <span className="text-xs font-semibold text-gray-400">/100</span>
+        </div>
+      </div>
+      <span className="text-xs font-bold" style={{ color }}>{label}</span>
     </div>
   );
 }
@@ -592,7 +631,12 @@ export default function App() {
             {/* Unified Answer */}
             {unifiedAnswer && (
               <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-                <p className="text-blue-600 dark:text-blue-400 text-xs uppercase tracking-widest font-semibold mb-4">📋 Analysis & Recommendations</p>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-blue-600 dark:text-blue-400 text-xs uppercase tracking-widest font-semibold">📋 Analysis & Recommendations</p>
+                    {confidence && severity && (
+                      <HealthScore score={calculateHealthScore(severity, confidence)} />
+                )}
+            </div>
                 {renderUnifiedAnswer()}
                 {confidence && (
                   <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
@@ -621,7 +665,6 @@ export default function App() {
     </div>
   );
 })()}
-
             {/* Done */}
             {step === STEPS.DONE && (
               <>
