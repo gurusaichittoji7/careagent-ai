@@ -34,6 +34,28 @@ const detectPatterns = (historyItems) => {
   return patterns.slice(0, 3);
 };
 
+const getWorseningAlert = (currentSeverity, historyItems) => {
+  if (!currentSeverity || historyItems.length === 0) return null;
+  const severityOrder = { Low: 1, Moderate: 2, High: 3, Emergency: 4 };
+  const lastSeverity = historyItems[0]?.severity;
+  if (!lastSeverity) return null;
+  const current = severityOrder[currentSeverity] || 0;
+  const last = severityOrder[lastSeverity] || 0;
+  if (current > last) {
+    return {
+      type: "worsening",
+      message: `⚠️ Your symptoms appear worse than last time (${lastSeverity} → ${currentSeverity}). Consider seeing a doctor.`
+    };
+  }
+  if (current < last) {
+    return {
+      type: "improving",
+      message: `✅ Good news! Your symptoms appear to be improving (${lastSeverity} → ${currentSeverity}).`
+    };
+  }
+  return null;
+};
+
 const AGENTS = [
   { key: "classifier", icon: "🔍", label: "Classify" },
   { key: "risk", icon: "⚠️", label: "Risk" },
@@ -585,6 +607,20 @@ export default function App() {
                 )}
               </div>
             )}
+
+            {(() => {
+  const alert = getWorseningAlert(severity, history);
+  if (!alert) return null;
+  return (
+    <div className={`rounded-2xl px-5 py-4 border text-sm font-medium
+      ${alert.type === "worsening"
+        ? "bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-950 dark:border-orange-700 dark:text-orange-300"
+        : "bg-green-50 border-green-300 text-green-700 dark:bg-green-950 dark:border-green-700 dark:text-green-300"
+      }`}>
+      {alert.message}
+    </div>
+  );
+})()}
 
             {/* Done */}
             {step === STEPS.DONE && (
