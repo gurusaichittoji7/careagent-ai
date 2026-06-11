@@ -220,7 +220,7 @@ export default function App() {
   const [followUpInput, setFollowUpInput] = useState("");
   const [followUpMessages, setFollowUpMessages] = useState([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
-  const [language] = useState(detectLanguage);
+  const [language, setLanguage] = useState(detectLanguage());
 
   const startListening = (setter) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -528,9 +528,22 @@ export default function App() {
               <p className="text-gray-500 dark:text-gray-400 text-sm">Multi-agent AI health reasoning</p>
             </div>
             <div className="flex items-center gap-2">
-  <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded-lg">
-    🌍 {language}
-  </span>
+  <select
+    value={language}
+    onChange={(e) => setLanguage(e.target.value)}
+    className="text-xs bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-300 px-2 py-2 rounded-xl transition font-medium focus:outline-none cursor-pointer"
+  >
+    <option value="English">🌍 English</option>
+    <option value="Spanish">🌍 Spanish</option>
+    <option value="French">🌍 French</option>
+    <option value="German">🌍 German</option>
+    <option value="Hindi">🌍 Hindi</option>
+    <option value="Chinese">🌍 Chinese</option>
+    <option value="Arabic">🌍 Arabic</option>
+    <option value="Portuguese">🌍 Portuguese</option>
+    <option value="Japanese">🌍 Japanese</option>
+    <option value="Korean">🌍 Korean</option>
+  </select>
   <button onClick={() => setDark(!dark)}
     className="text-xs bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-xl hover:shadow transition font-medium text-gray-600 dark:text-gray-300">
     {dark ? "☀️ Light" : "🌙 Dark"}
