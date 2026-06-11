@@ -15,6 +15,17 @@ const savePersistedHistory = (items) => {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
 };
 
+const detectLanguage = () => {
+  const lang = navigator.language || "en";
+  const supported = {
+    "es": "Spanish", "fr": "French", "de": "German",
+    "hi": "Hindi", "zh": "Chinese", "ar": "Arabic",
+    "pt": "Portuguese", "ja": "Japanese", "ko": "Korean"
+  };
+  const code = lang.split("-")[0];
+  return supported[code] || "English";
+};
+
 const detectPatterns = (historyItems) => {
   if (historyItems.length < 2) return [];
   const patterns = [];
@@ -209,6 +220,7 @@ export default function App() {
   const [followUpInput, setFollowUpInput] = useState("");
   const [followUpMessages, setFollowUpMessages] = useState([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
+  const [language] = useState(detectLanguage);
 
   const startListening = (setter) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -236,7 +248,7 @@ export default function App() {
       const res = await fetch("http://localhost:8000/clarify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, language }),
       });
       const data = await res.json();
       if (data.error === "not_health") {
@@ -262,7 +274,7 @@ export default function App() {
       const res = await fetch("http://localhost:8000/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, context }),
+        body: JSON.stringify({ question, context, language }),
       });
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -515,10 +527,15 @@ export default function App() {
               <h1 className="text-3xl font-bold text-blue-600 dark:text-blue-400">🩺 CareAgent</h1>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Multi-agent AI health reasoning</p>
             </div>
-            <button onClick={() => setDark(!dark)}
-              className="text-xs bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-xl hover:shadow transition font-medium text-gray-600 dark:text-gray-300">
-              {dark ? "☀️ Light" : "🌙 Dark"}
-            </button>
+            <div className="flex items-center gap-2">
+  <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 px-2 py-1 rounded-lg">
+    🌍 {language}
+  </span>
+  <button onClick={() => setDark(!dark)}
+    className="text-xs bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-xl hover:shadow transition font-medium text-gray-600 dark:text-gray-300">
+    {dark ? "☀️ Light" : "🌙 Dark"}
+  </button>
+</div>
           </div>
 
           <div className="w-full max-w-2xl flex flex-col gap-4">

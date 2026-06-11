@@ -36,10 +36,12 @@ app.add_middleware(
 
 class QuestionRequest(BaseModel):
     question: str
+    language: str = "English"
 
 class AnalyzeRequest(BaseModel):
     question: str
     context: str = ""
+    language: str = "English"
 
 @app.get("/")
 def root():
@@ -50,7 +52,7 @@ def clarify(request: QuestionRequest):
     try:
         if not is_health_question(request.question):
             return {"error": "not_health", "message": "I can only help with health and medical questions. Please describe a symptom or health concern."}
-        clarifying_question = generate_clarifying_question(request.question)
+        clarifying_question = generate_clarifying_question(request.question, request.language)
         return {"clarifying_question": clarifying_question}
     except Exception as e:
         return {"error": str(e)}
@@ -91,7 +93,7 @@ def analyze(request: AnalyzeRequest):
                 confidence = {"classifier": 85, "risk": 80, "recommendation": 78, "safety": 92}
             yield json.dumps({"agent": "confidence", "result": confidence}) + "\n"
             yield json.dumps({"agent": "summary", "status": "thinking"}) + "\n"
-            summary = generate_unified_summary(full_input, classification, risk, recommendation, safety)
+            summary = generate_unified_summary(full_input, classification, risk, recommendation, safety, request.language)
             yield json.dumps({"agent": "summary", "result": summary}) + "\n"
             yield json.dumps({"agent": "done"}) + "\n"
 

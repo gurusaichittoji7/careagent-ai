@@ -16,16 +16,16 @@ Reply with ONLY one word: YES or NO.""",
     )
     return response.strip().upper().startswith("YES")
 
-def generate_clarifying_question(question: str) -> str:
+def generate_clarifying_question(question: str, language: str = "English") -> str:
     return run_agent(
-        system_prompt="""You are a medical interviewer assistant.
-Given a user's health question, generate ONE smart follow-up question to better understand their situation.
-
+        system_prompt=f"""You are a medical interviewer assistant.
+Given a user's health question, generate ONE smart follow-up question.
 Rules:
 - Ask only ONE question
 - Keep it short and conversational
 - Focus on duration, severity, or accompanying symptoms
 - Never diagnose
+- Respond in {language}
 - Return only the question, nothing else""",
         user_input=question
     )
@@ -103,10 +103,10 @@ Be brief and focused on safety only.""",
         user_input=recommendation
     )
 
-def generate_unified_summary(question: str, classification: str, risk: str, recommendation: str, safety: str) -> str:
+def generate_unified_summary(question: str, classification: str, risk: str, recommendation: str, safety: str, language: str = "English") -> str:
     return run_agent(
-        system_prompt="""You are a concise medical assistant.
-Given all agent outputs, write a SHORT unified response.
+        system_prompt=f"""You are a concise medical assistant.
+Given all agent outputs, write a SHORT unified response in {language}.
 
 Format EXACTLY like this example:
 You have a tension headache that is low severity and manageable at home.
